@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${STAGING_NS}
+  labels:
+    demo.io/managed-by: pod-investigator
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${PROD_NS}
+  labels:
+    demo.io/managed-by: pod-investigator
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${OBS_NS}
+  labels:
+    demo.io/managed-by: pod-investigator

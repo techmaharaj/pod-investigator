@@ -1,0 +1,22 @@
+# Minimal-footprint Kyverno install for a resource-constrained single-node
+# demo host. Only the admission-controller is enabled -- it's the only
+# component this demo actually exercises (the CLI-based policy check uses
+# `kyverno apply`, which needs no running controller at all; the live
+# admission-controller is kept so a real restart_pod delete is genuinely
+# admission-checked).
+admissionController:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 192Mi
+
+backgroundController:
+  enabled: false
+cleanupController:
+  enabled: false
+reportsController:
+  enabled: false

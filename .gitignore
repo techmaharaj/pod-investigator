@@ -1,0 +1,7 @@
+.venv/
+.demo-state/
+__pycache__/
+*.pyc
+.env
+*.log
+.claude/settings.local.json

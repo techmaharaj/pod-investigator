@@ -1,0 +1,78 @@
+# The golden-path artifact: ties identity scope to allowed tools/namespaces.
+#
+# This is applied live as a ClusterPolicy AND passed directly to
+# `kyverno apply` by mcp_server/policy_client.py for the per-tool-call
+# check (real admission control only intercepts writes, not reads like
+# get_pod_logs/get_secret -- see the README). Same YAML, same engine,
+# either way -- one source of truth.
+#
+# Each tool call is represented as a synthetic Pod (for get_pod_logs,
+# get_pod_status, restart_pod) or Secret (for get_secret), stamped with
+# demo.io/identity, demo.io/scope, demo.io/tool annotations describing
+# what the agent is trying to do. Only synthetic manifests carry the
+# demo.io/synthetic-check=true label these rules match on -- the real
+# dummy Pod/Secret created by apply_namespaces.sh deliberately do NOT
+# carry it (they only carry demo.io/managed-by, used for cleanup), so
+# they're never evaluated against these rules and can't be blocked by
+# their own missing demo.io/identity/scope/tool annotations.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: pod-investigator-agent-scope
+  labels:
+    demo.io/managed-by: pod-investigator
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: allow-scoped-pod-actions
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              selector:
+                matchLabels:
+                  demo.io/synthetic-check: "true"
+      validate:
+        message: >-
+          denied: identity {{ request.object.metadata.annotations."demo.io/identity" }}
+          (scope={{ request.object.metadata.annotations."demo.io/scope" }}) is not authorized
+          for tool {{ request.object.metadata.annotations."demo.io/tool" }} in namespace
+          {{ request.object.metadata.namespace }}. reason=scope_violation
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.metadata.annotations.\"demo.io/identity\" }}"
+                operator: NotEquals
+                value: "spiffe://homelab/deploy-bot"
+              - key: "{{ request.object.metadata.annotations.\"demo.io/scope\" }}"
+                operator: NotEquals
+                value: "staging"
+              - key: "{{ request.object.metadata.namespace }}"
+                operator: NotEquals
+                value: "${STAGING_NS}"
+              - key: "{{ request.object.metadata.annotations.\"demo.io/tool\" }}"
+                operator: NotIn
+                value: ["get_pod_logs", "get_pod_status", "restart_pod"]
+
+    - name: deny-secret-access
+      match:
+        any:
+          - resources:
+              kinds: ["Secret"]
+              selector:
+                matchLabels:
+                  demo.io/synthetic-check: "true"
+      validate:
+        message: >-
+          denied: identity {{ request.object.metadata.annotations."demo.io/identity" }}
+          (scope={{ request.object.metadata.annotations."demo.io/scope" }}) is not authorized
+          for tool get_secret in namespace {{ request.object.metadata.namespace }}.
+          reason=scope_violation (get_secret was never granted to this identity, and
+          scope 'staging' does not cover this namespace)
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.metadata.annotations.\"demo.io/tool\" }}"
+                operator: Equals
+                value: "get_secret"

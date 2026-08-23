@@ -1,0 +1,7 @@
+mcp==2.0.0
+# Pinned: litellm 1.97.0 ships a broken forward-ref (ChatCompletionReasoningSummaryTextBlock
+# undefined at Message.model_rebuild() time) under pydantic>=2.13 -- every completion call
+# raises PydanticUserError. 1.96.2 doesn't have the bug.
+litellm==1.96.2
+opentelemetry-sdk
+opentelemetry-exporter-otlp
